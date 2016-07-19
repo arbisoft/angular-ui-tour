@@ -82,7 +82,8 @@
         service.createForElement = function (element, shouldPreventScrolling, isFixedElement) {
             var position,
                 viewportPosition,
-                bodyPosition;
+                bodyPosition, 
+                mainContainer = TourConfig.get('containerSelector') || 'body';
 
             if (shouldPreventScrolling) {
                 preventScrolling();
@@ -107,7 +108,7 @@
                 position: isFixedElement ? 'fixed' : 'absolute',
                 left: 0,
                 width: '100%',
-                height: (bodyPosition.top + bodyPosition.height - position.top - position.height) + 'px',
+                height: $(mainContainer).height() - (position.top + position.height)+'px',//(bodyPosition.top + bodyPosition.height - position.top - position.height) + 'px',
                 top: (position.top + position.height) + 'px'
             });
             viewWindow.left.css({
@@ -867,7 +868,7 @@
 (function (app) {
     'use strict';
 
-    app.factory('TourHelpers', ['$templateCache', '$http', '$compile', '$location', 'TourConfig', '$q', '$injector', function ($templateCache, $http, $compile, $location, TourConfig, $q, $injector) {
+    app.factory('TourHelpers', ['$templateCache', '$http', '$compile', '$location', 'TourConfig', '$q', '$injector', '$timeout', function ($templateCache, $http, $compile, $location, TourConfig, $q, $injector, $timeout) {
 
         var helpers = {},
             safeApply,
@@ -891,7 +892,10 @@
                     fn();
                 }
             } else {
-                scope.$apply(fn);
+                //scope.$apply(fn);
+                $timeout(function(){
+                    fn();
+                });
             }
         };
 
