@@ -82,7 +82,7 @@
         service.createForElement = function (element, shouldPreventScrolling, isFixedElement) {
             var position,
                 viewportPosition,
-                bodyPosition, 
+                bodyPosition,
                 mainContainer = TourConfig.get('containerSelector') || 'body';
 
             if (shouldPreventScrolling) {
@@ -102,27 +102,27 @@
                 top: 0,
                 left: 0,
                 width: '100%',
-                height: position.top + 'px'
+                height: position.top - TourConfig.get('backdropPadding') +'px'
             });
             viewWindow.bottom.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
                 left: 0,
                 width: '100%',
                 height: $(mainContainer).height() - (position.top + position.height)+'px',//(bodyPosition.top + bodyPosition.height - position.top - position.height) + 'px',
-                top: (position.top + position.height) + 'px'
+                top: (position.top + position.height) + TourConfig.get('backdropPadding') + 'px'
             });
             viewWindow.left.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
-                top: position.top + 'px',
-                width: position.left + 'px',
-                height: position.height + 'px'
+                top: position.top - TourConfig.get('backdropPadding') + 'px',
+                width: position.left - TourConfig.get('backdropPadding') + 'px',
+                height: position.height + (TourConfig.get('backdropPadding') * 2) + 'px'
             });
             viewWindow.right.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
-                top: position.top + 'px',
+                top: position.top - TourConfig.get('backdropPadding') + 'px',
                 width: (bodyPosition.left + bodyPosition.width - position.left - position.width) + 'px',
-                height: position.height + 'px',
-                left: (position.left + position.width) + 'px'
+                height: position.height + (TourConfig.get('backdropPadding') * 2) + 'px',
+                left: (position.left + position.width) + TourConfig.get('backdropPadding') + 'px'
             });
 
             showBackdrop();
@@ -165,6 +165,7 @@
             scrollIntoView: true,
             useUiRouter: false,
             useHotkeys: false,
+            backdropPadding: 0,
 
             onStart: null,
             onEnd: null,
