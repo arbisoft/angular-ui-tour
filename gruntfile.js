@@ -70,6 +70,20 @@ module.exports = function (grunt) {
                         }
                     }
                 }
+            },
+            docs: {
+                src: 'README.md',
+                fileTypes: {
+                    md: {
+                        block: /(([ \t]*)<!--\s*dependencies:*(\S*)\s*-->)(\n|\r|.)*?(<!--\s*end dependencies\s*-->)/gi,
+                        detect: {
+                            js: /<script.*src=['"]([^'"]+)/gi
+                        },
+                        replace: {
+                            js: '<script src="{{filePath}}"></script>'
+                        }
+                    }
+                }
             }
         },
 

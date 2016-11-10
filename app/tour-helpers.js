@@ -3,7 +3,7 @@
 (function (app) {
     'use strict';
 
-    app.factory('TourHelpers', ['$templateCache', '$http', '$compile', '$location', 'TourConfig', '$q', '$injector', function ($templateCache, $http, $compile, $location, TourConfig, $q, $injector) {
+    app.factory('TourHelpers', ['$templateCache', '$http', '$compile', '$location', 'TourConfig', '$q', '$injector', '$timeout', function ($templateCache, $http, $compile, $location, TourConfig, $q, $injector, $timeout) {
 
         var helpers = {},
             safeApply,
@@ -21,7 +21,7 @@
          * @param {Function} fn
          */
         safeApply = helpers.safeApply = function(scope, fn) {
-            var phase = scope.$$phase;
+            var phase = scope.$root.$$phase;
             if (phase === '$apply' || phase === '$digest') {
                 if (fn && (typeof(fn) === 'function')) {
                     fn();
@@ -130,10 +130,10 @@
                     }
                     ctrl.waitFor(targetName);
                     if (step.config('useUiRouter')) {
-                        $state.transitionTo(path).then(resolve);
+                        $state.go(path).then(resolve);
                     } else {
                         $location.path(path);
-                        resolve();
+                        $timeout(resolve);
                     }
                 });
             };

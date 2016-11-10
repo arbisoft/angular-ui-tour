@@ -15,7 +15,7 @@
 (function (app) {
     'use strict';
 
-    app.factory('uiTourBackdrop', ['TourConfig', '$document', '$uibPosition', function (TourConfig, $document, $uibPosition) {
+    app.factory('uiTourBackdrop', ['TourConfig', '$document', '$uibPosition', '$window', function (TourConfig, $document, $uibPosition, $window) {
 
         var service = {},
             $body = angular.element($document[0].body),
@@ -27,7 +27,8 @@
             },
             preventDefault = function (e) {
                 e.preventDefault();
-            };
+            },
+            onResize;
 
         (function createNoScrollingClass() {
             var name = '.no-scrolling',
@@ -74,20 +75,12 @@
             viewWindow.right.css('display', 'none');
         }
 
-        createBackdropComponent(viewWindow.top);
-        createBackdropComponent(viewWindow.bottom);
-        createBackdropComponent(viewWindow.left);
-        createBackdropComponent(viewWindow.right);
-
-        service.createForElement = function (element, shouldPreventScrolling, isFixedElement) {
+        function positionBackdrop(element, isFixedElement) {
             var position,
                 viewportPosition,
                 bodyPosition,
-                mainContainer = TourConfig.get('containerSelector') || 'body';
-
-            if (shouldPreventScrolling) {
-                preventScrolling();
-            }
+                vw = Math.max($document[0].documentElement.clientWidth, $window.innerWidth || 0),
+                vh = Math.max($document[0].documentElement.clientHeight, $window.innerHeight || 0);
 
             position = $uibPosition.offset(element);
             viewportPosition = $uibPosition.viewportOffset(element);
@@ -102,30 +95,43 @@
                 top: 0,
                 left: 0,
                 width: '100%',
-                height: position.top - TourConfig.get('backdropPadding') +'px'
+                height: position.top + 'px'
             });
             viewWindow.bottom.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
                 left: 0,
                 width: '100%',
-                height: $(mainContainer).height() - (position.top + position.height)+'px',//(bodyPosition.top + bodyPosition.height - position.top - position.height) + 'px',
-                top: (position.top + position.height) + TourConfig.get('backdropPadding') + 'px'
+                height: Math.max(bodyPosition.top + bodyPosition.height - position.top - position.height, vh - position.top - position.height) + 'px',
+                top: (position.top + position.height) + 'px'
             });
             viewWindow.left.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
-                top: position.top - TourConfig.get('backdropPadding') + 'px',
-                width: position.left - TourConfig.get('backdropPadding') + 'px',
-                height: position.height + (TourConfig.get('backdropPadding') * 2) + 'px'
+                top: position.top + 'px',
+                width: position.left + 'px',
+                height: position.height + 'px'
             });
             viewWindow.right.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
-                top: position.top - TourConfig.get('backdropPadding') + 'px',
-                width: (bodyPosition.left + bodyPosition.width - position.left - position.width) + 'px',
-                height: position.height + (TourConfig.get('backdropPadding') * 2) + 'px',
-                left: (position.left + position.width) + TourConfig.get('backdropPadding') + 'px'
+                top: position.top + 'px',
+                width: Math.max(bodyPosition.left + bodyPosition.width - position.left - position.width, vw - position.left - position.width) + 'px',
+                height: position.height + 'px',
+                left: (position.left + position.width) + 'px'
             });
+        }
 
+        createBackdropComponent(viewWindow.top);
+        createBackdropComponent(viewWindow.bottom);
+        createBackdropComponent(viewWindow.left);
+        createBackdropComponent(viewWindow.right);
+
+        service.createForElement = function (element, shouldPreventScrolling, isFixedElement) {
+            positionBackdrop(element, isFixedElement);
             showBackdrop();
+
+            onResize = function () {
+                positionBackdrop(element, isFixedElement);
+            };
+            angular.element($window).on('resize', onResize);
 
             if (shouldPreventScrolling) {
                 preventScrolling();
@@ -135,6 +141,7 @@
         service.hide = function () {
             hideBackdrop();
             allowScrolling();
+            angular.element($window).off('resize', onResize);
         };
 
         return service;
@@ -165,7 +172,6 @@
             scrollIntoView: true,
             useUiRouter: false,
             useHotkeys: false,
-            backdropPadding: 0,
 
             onStart: null,
             onEnd: null,
@@ -273,6 +279,13 @@
             if (!getCurrentStep()) {
                 return null;
             }
+            if (getCurrentStep().config('nextPath') && offset > 0) {
+                return null;
+            }
+            if (getCurrentStep().config('prevPath') && offset < 0) {
+                return null;
+            }
+
             return stepList[stepList.indexOf(getCurrentStep()) + offset];
         }
 
@@ -336,7 +349,7 @@
          * @returns {boolean}
          */
         function isNext() {
-            return !!(getNextStep() || getCurrentStep().nextPath);
+            return !!(getNextStep() || (getCurrentStep() && getCurrentStep().config('nextPath')));
         }
 
         /**
@@ -345,7 +358,7 @@
          * @returns {boolean}
          */
         function isPrev() {
-            return !!(getPrevStep() || getCurrentStep().prevPath);
+            return !!(getPrevStep() || (getCurrentStep() && getCurrentStep().config('prevPath')));
         }
 
         /**
@@ -440,8 +453,11 @@
          * @param step
          */
         self.removeStep = function (step) {
-            stepList.splice(stepList.indexOf(step), 1);
-            self.emit('stepRemoved', step);
+            var index = stepList.indexOf(step);
+            if (index !== -1) {
+                stepList.splice(index, 1);
+                self.emit('stepRemoved', step);
+            }
         };
 
         /**
@@ -501,8 +517,8 @@
             }).then(function () {
 
                 self.emit('stepShown', step);
-                step.isNext = isNext();
-                step.isPrev = isPrev();
+                step.isNext = isNext;
+                step.isPrev = isPrev;
 
             });
         };
@@ -659,6 +675,7 @@
         self.pause = function () {
             return handleEvent(options.onPause).then(function () {
                 tourStatus = statuses.PAUSED;
+                uiTourBackdrop.hide();
                 return self.hideStep(getCurrentStep());
             }).then(function () {
                 self.emit('paused', getCurrentStep());
@@ -731,16 +748,16 @@
 
                 }).then(function () {
 
-                    //if the next/prev step does not have a backdrop, hide it
-                    if (getCurrentStep().config('backdrop') && !actionMap[goTo].getStep().config('backdrop')) {
-                        uiTourBackdrop.hide();
-                    }
-
                     //if a redirect occurred during onNext or onPrev, getCurrentStep() !== currentStep
                     //this will only be true if no redirect occurred, since the redirect sets current step
                     if (!currentStep[actionMap[goTo].navCheck] || currentStep[actionMap[goTo].navCheck] !== getCurrentStep().stepId) {
                         setCurrentStep(actionMap[goTo].getStep());
                         self.emit('stepChanged', getCurrentStep());
+                    }
+
+                    //if the next/prev step does not have a backdrop, hide it
+                    if (getCurrentStep() && !getCurrentStep().config('backdrop')) {
+                        uiTourBackdrop.hide();
                     }
 
                 }).then(function () {
@@ -887,16 +904,13 @@
          * @param {Function} fn
          */
         safeApply = helpers.safeApply = function(scope, fn) {
-            var phase = scope.$$phase;
+            var phase = scope.$root.$$phase;
             if (phase === '$apply' || phase === '$digest') {
                 if (fn && (typeof(fn) === 'function')) {
                     fn();
                 }
             } else {
-                //scope.$apply(fn);
-                $timeout(function(){
-                    fn();
-                });
+                scope.$apply(fn);
             }
         };
 
@@ -999,10 +1013,10 @@
                     }
                     ctrl.waitFor(targetName);
                     if (step.config('useUiRouter')) {
-                        $state.transitionTo(path).then(resolve);
+                        $state.go(path).then(resolve);
                     } else {
                         $location.path(path);
-                        resolve();
+                        $timeout(resolve);
                     }
                 });
             };
@@ -1215,7 +1229,7 @@
 
                     //Add step to tour
                     scope.tourStep = step;
-                    scope.tour = scope.tour || ctrl;
+                    scope.tour = ctrl;
                     if (ctrl.initialized) {
                         configureInheritedProperties();
                         ctrl.addStep(step);
@@ -1244,21 +1258,16 @@
 
     }]);
 
-    app.directive('tourStepPopup', ['TourConfig', 'smoothScroll', 'ezComponentHelpers', function (TourConfig, smoothScroll, ezComponentHelpers) {
+    app.directive('tourStepPopup', ['TourConfig', 'smoothScroll', 'ezComponentHelpers', '$uibPosition', function (TourConfig, smoothScroll, ezComponentHelpers, $uibPostion) {
         return {
-            restrict: 'EA',
-            replace: true,
-            scope: { title: '@', uibTitle: '@uibTitle', content: '@', placement: '@', animation: '&', isOpen: '&', originScope: '&'},
+            restrict: 'A',
+            scope: { uibTitle: '@', contentExp: '&', originScope: '&' },
             templateUrl: 'tour-step-popup.html',
             link: function (scope, element, attrs) {
                 var step = scope.originScope().tourStep,
                     ch = ezComponentHelpers.apply(null, arguments),
-                    scrollOffset = step.config('scrollOffset');
-
-                //UI Bootstrap name changed in 1.3.0
-                if (!scope.title && scope.uibTitle) {
-                    scope.title = scope.uibTitle;
-                }
+                    scrollOffset = step.config('scrollOffset'),
+                    isScrolling = false;
 
                 //for arrow styles, unfortunately UI Bootstrap uses attributes for styling
                 attrs.$set('uib-popover-popup', 'uib-popover-popup');
@@ -1268,7 +1277,7 @@
                     display: 'block'
                 });
 
-                element.addClass(step.config('popupClass'));
+                element.addClass([step.config('popupClass'), 'popover'].join(' '));
 
                 if (step.config('fixed')) {
                     element.css('position', 'fixed');
@@ -1293,10 +1302,16 @@
                     );
                 }
 
-                scope.$watch('isOpen', function (isOpen) {
-                    if (isOpen() && !step.config('orphan') && step.config('scrollIntoView')) {
+                scope.$watch(function () {
+                    var offset = $uibPostion.offset(element),
+                        isOpen = offset.width && offset.height;
+                    if (isOpen && !step.config('orphan') && step.config('scrollIntoView') && !isScrolling) {
+                        isScrolling = true;
                         smoothScroll(element[0], {
-                            offset: scrollOffset
+                            offset: scrollOffset,
+                            callbackAfter: function () {
+                                isScrolling = false;
+                            }
                         });
                     }
                 });
@@ -1308,18 +1323,13 @@
 
 angular.module('bm.uiTour').run(['$templateCache', function($templateCache) {
   $templateCache.put("tour-step-popup.html",
-    "<div class=\"popover tour-step\"\n" +
-    "     tooltip-animation-class=\"fade\"\n" +
-    "     uib-tooltip-classes\n" +
-    "     ng-class=\"{ in: isOpen() }\">\n" +
-    "    <div class=\"arrow\"></div>\n" +
+    "<div class=\"arrow\"></div>\n" +
     "\n" +
-    "    <div class=\"popover-inner tour-step-inner\">\n" +
-    "        <h3 class=\"popover-title tour-step-title\" ng-bind=\"title\" ng-if=\"title\"></h3>\n" +
-    "        <div class=\"popover-content tour-step-content\"\n" +
-    "             uib-tooltip-template-transclude=\"originScope().tourStep.config('templateUrl') || 'tour-step-template.html'\"\n" +
-    "             tooltip-template-transclude-scope=\"originScope()\"></div>\n" +
-    "    </div>\n" +
+    "<div class=\"popover-inner tour-step-inner\">\n" +
+    "    <h3 class=\"popover-title tour-step-title\" ng-bind=\"uibTitle\" ng-if=\"uibTitle\"></h3>\n" +
+    "    <div class=\"popover-content tour-step-content\"\n" +
+    "         uib-tooltip-template-transclude=\"originScope().tourStep.config('templateUrl') || 'tour-step-template.html'\"\n" +
+    "         tooltip-template-transclude-scope=\"originScope()\"></div>\n" +
     "</div>\n" +
     "");
   $templateCache.put("tour-step-template.html",
@@ -1327,8 +1337,8 @@ angular.module('bm.uiTour').run(['$templateCache', function($templateCache) {
     "    <div class=\"popover-content tour-step-content\" ng-bind-html=\"tourStep.trustedContent\"></div>\n" +
     "    <div class=\"popover-navigation tour-step-navigation\">\n" +
     "        <div class=\"btn-group\">\n" +
-    "            <button class=\"btn btn-sm btn-default\" ng-if=\"tourStep.isPrev\" ng-click=\"tour.prev()\">&laquo; Prev</button>\n" +
-    "            <button class=\"btn btn-sm btn-default\" ng-if=\"tourStep.isNext\" ng-click=\"tour.next()\">Next &raquo;</button>\n" +
+    "            <button class=\"btn btn-sm btn-default\" ng-if=\"tourStep.isPrev()\" ng-click=\"tour.prev()\">&laquo; Prev</button>\n" +
+    "            <button class=\"btn btn-sm btn-default\" ng-if=\"tourStep.isNext()\" ng-click=\"tour.next()\">Next &raquo;</button>\n" +
     "            <button class=\"btn btn-sm btn-default\" data-role=\"pause-resume\" data-pause-text=\"Pause\"\n" +
     "                    data-resume-text=\"Resume\" ng-click=\"tour.pause()\">Pause\n" +
     "            </button>\n" +

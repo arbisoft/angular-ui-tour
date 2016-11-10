@@ -57,6 +57,13 @@
             if (!getCurrentStep()) {
                 return null;
             }
+            if (getCurrentStep().config('nextPath') && offset > 0) {
+                return null;
+            }
+            if (getCurrentStep().config('prevPath') && offset < 0) {
+                return null;
+            }
+
             return stepList[stepList.indexOf(getCurrentStep()) + offset];
         }
 
@@ -120,7 +127,7 @@
          * @returns {boolean}
          */
         function isNext() {
-            return !!(getNextStep() || getCurrentStep().nextPath);
+            return !!(getNextStep() || (getCurrentStep() && getCurrentStep().config('nextPath')));
         }
 
         /**
@@ -129,7 +136,7 @@
          * @returns {boolean}
          */
         function isPrev() {
-            return !!(getPrevStep() || getCurrentStep().prevPath);
+            return !!(getPrevStep() || (getCurrentStep() && getCurrentStep().config('prevPath')));
         }
 
         /**
@@ -224,8 +231,11 @@
          * @param step
          */
         self.removeStep = function (step) {
-            stepList.splice(stepList.indexOf(step), 1);
-            self.emit('stepRemoved', step);
+            var index = stepList.indexOf(step);
+            if (index !== -1) {
+                stepList.splice(index, 1);
+                self.emit('stepRemoved', step);
+            }
         };
 
         /**
@@ -285,8 +295,8 @@
             }).then(function () {
 
                 self.emit('stepShown', step);
-                step.isNext = isNext();
-                step.isPrev = isPrev();
+                step.isNext = isNext;
+                step.isPrev = isPrev;
 
             });
         };
@@ -443,6 +453,7 @@
         self.pause = function () {
             return handleEvent(options.onPause).then(function () {
                 tourStatus = statuses.PAUSED;
+                uiTourBackdrop.hide();
                 return self.hideStep(getCurrentStep());
             }).then(function () {
                 self.emit('paused', getCurrentStep());
@@ -515,16 +526,16 @@
 
                 }).then(function () {
 
-                    //if the next/prev step does not have a backdrop, hide it
-                    if (getCurrentStep().config('backdrop') && !actionMap[goTo].getStep().config('backdrop')) {
-                        uiTourBackdrop.hide();
-                    }
-
                     //if a redirect occurred during onNext or onPrev, getCurrentStep() !== currentStep
                     //this will only be true if no redirect occurred, since the redirect sets current step
                     if (!currentStep[actionMap[goTo].navCheck] || currentStep[actionMap[goTo].navCheck] !== getCurrentStep().stepId) {
                         setCurrentStep(actionMap[goTo].getStep());
                         self.emit('stepChanged', getCurrentStep());
+                    }
+
+                    //if the next/prev step does not have a backdrop, hide it
+                    if (getCurrentStep() && !getCurrentStep().config('backdrop')) {
+                        uiTourBackdrop.hide();
                     }
 
                 }).then(function () {
