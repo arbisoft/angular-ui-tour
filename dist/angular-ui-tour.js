@@ -95,27 +95,27 @@
                 top: 0,
                 left: 0,
                 width: '100%',
-                height: position.top + 'px'
+                height: position.top - TourConfig.get('backdropPadding') +'px'//height: position.top + 'px'
             });
             viewWindow.bottom.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
                 left: 0,
                 width: '100%',
                 height: Math.max(bodyPosition.top + bodyPosition.height - position.top - position.height, vh - position.top - position.height) + 'px',
-                top: (position.top + position.height) + 'px'
+                top: (position.top + position.height) + TourConfig.get('backdropPadding') + 'px'//top: (position.top + position.height) + 'px'
             });
             viewWindow.left.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
-                top: position.top + 'px',
-                width: position.left + 'px',
-                height: position.height + 'px'
+                top: position.top - TourConfig.get('backdropPadding') + 'px',//top: position.top + 'px',
+                width: position.left - TourConfig.get('backdropPadding') + 'px',//width: position.left + 'px',
+                height: position.height + (TourConfig.get('backdropPadding') * 2) + 'px'//height: position.height + 'px'
             });
             viewWindow.right.css({
                 position: isFixedElement ? 'fixed' : 'absolute',
-                top: position.top + 'px',
+                top: position.top - TourConfig.get('backdropPadding') + 'px',//top: position.top + 'px',
                 width: Math.max(bodyPosition.left + bodyPosition.width - position.left - position.width, vw - position.left - position.width) + 'px',
-                height: position.height + 'px',
-                left: (position.left + position.width) + 'px'
+                height: position.height + (TourConfig.get('backdropPadding') * 2) + 'px',//height: position.height + 'px',
+                left: (position.left + position.width) + TourConfig.get('backdropPadding') + 'px'//left: (position.left + position.width) + 'px'
             });
         }
 
@@ -172,6 +172,7 @@
             scrollIntoView: true,
             useUiRouter: false,
             useHotkeys: false,
+            backdropPadding: 0,
 
             onStart: null,
             onEnd: null,
